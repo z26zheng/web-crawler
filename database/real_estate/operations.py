@@ -1,0 +1,326 @@
+"""
+Module for handling real estate operations using SQLAlchemy ORM
+"""
+import os
+import sys
+from typing import List, Optional, Dict, Any
+
+# Add the project root directory to Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.insert(0, project_root)
+
+from database import Session
+from database.real_estate.models import RealEstate, RealEstateImage
+
+# Real Estate Operations
+
+def add_real_estate(address: str, source_url: Dict[str, Any] = None, 
+                    pending_date: Optional[str] = None, status: Optional[str] = None, 
+                    qr_code_url: Optional[str] = None) -> int:
+    """
+    Add a new real estate property using SQLAlchemy ORM
+    
+    Args:
+        address: Property address (required)
+        source_url: Source URL information
+        pending_date: Date when the property is pending
+        status: Current status of the property
+        qr_code_url: URL for QR code
+        
+    Returns:
+        int: ID of the newly created property record
+        
+    Raises:
+        Exception: If there was an error adding the property
+    """
+    session = Session()
+    try:
+        # Create a new RealEstate instance
+        new_property = RealEstate(
+            address=address,
+            source_url=source_url or {},
+            pending_date=pending_date,
+            status=status,
+            qr_code_url=qr_code_url
+        )
+        
+        # Add to session and commit
+        session.add(new_property)
+        session.commit()
+        
+        # Return the new ID
+        return new_property.id
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error adding real estate property: {str(e)}")
+    finally:
+        session.close()
+
+def get_real_estate(property_id: int) -> Optional[RealEstate]:
+    """
+    Get a real estate property by ID using SQLAlchemy ORM
+    
+    Args:
+        property_id: ID of the property to retrieve
+        
+    Returns:
+        Optional[RealEstate]: Property object if found, None otherwise
+        
+    Raises:
+        Exception: If there was an error retrieving the property
+    """
+    session = Session()
+    try:
+        # Query using SQLAlchemy ORM
+        property = session.query(RealEstate).filter(RealEstate.id == property_id).first()
+        return property
+    except Exception as e:
+        raise Exception(f"Error retrieving real estate property: {str(e)}")
+    finally:
+        session.close()
+
+def get_real_estates(limit: int = 100, offset: int = 0) -> List[RealEstate]:
+    """
+    Get a list of real estate properties using SQLAlchemy ORM
+    
+    Args:
+        limit: Maximum number of properties to retrieve
+        offset: Number of properties to skip
+        
+    Returns:
+        List[RealEstate]: List of property objects
+        
+    Raises:
+        Exception: If there was an error retrieving properties
+    """
+    session = Session()
+    try:
+        # Query using SQLAlchemy ORM with pagination
+        properties = (
+            session.query(RealEstate)
+            .order_by(RealEstate.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return properties
+    except Exception as e:
+        raise Exception(f"Error retrieving real estate properties: {str(e)}")
+    finally:
+        session.close()
+
+def update_real_estate(property_id: int, updates: Dict[str, Any]) -> bool:
+    """
+    Update an existing real estate property using SQLAlchemy ORM
+    
+    Args:
+        property_id: ID of the property to update
+        updates: Dictionary of fields to update
+        
+    Returns:
+        bool: True if update was successful
+        
+    Raises:
+        Exception: If there was an error updating the property
+    """
+    session = Session()
+    try:
+        # Get the existing property
+        property = session.query(RealEstate).filter(RealEstate.id == property_id).first()
+        
+        # If property doesn't exist, return False
+        if not property:
+            return False
+        
+        # Update only valid fields
+        valid_fields = ["address", "source_url", "pending_date", "status", "qr_code_url"]
+        
+        # Apply updates
+        for key, value in updates.items():
+            if key in valid_fields and hasattr(property, key):
+                setattr(property, key, value)
+        
+        # Commit changes
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error updating real estate property: {str(e)}")
+    finally:
+        session.close()
+
+def delete_real_estate(property_id: int) -> bool:
+    """
+    Delete a real estate property using SQLAlchemy ORM
+    
+    Args:
+        property_id: ID of the property to delete
+        
+    Returns:
+        bool: True if deletion was successful
+        
+    Raises:
+        Exception: If there was an error deleting the property
+    """
+    session = Session()
+    try:
+        # Get property by ID
+        property = session.query(RealEstate).filter(RealEstate.id == property_id).first()
+        
+        # If property doesn't exist, return False
+        if not property:
+            return False
+        
+        # Delete the property (images will be deleted automatically due to cascade)
+        session.delete(property)
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error deleting real estate property: {str(e)}")
+    finally:
+        session.close()
+
+# Image Operations
+
+def add_image(real_estate_id: int, source_image_url: Optional[str] = None, 
+              generated_image_url: Optional[str] = None, stats: Optional[str] = None) -> int:
+    """
+    Add a new image for a real estate property using SQLAlchemy ORM
+    
+    Args:
+        real_estate_id: ID of the real estate property
+        source_image_url: URL of the source image
+        generated_image_url: URL of the generated image
+        stats: Statistics or information about the image
+        
+    Returns:
+        int: ID of the newly created image record
+    
+    Raises:
+        Exception: If there was an error adding the image
+    """
+    session = Session()
+    try:
+        # Create a new RealEstateImage instance
+        new_image = RealEstateImage(
+            real_estate_id=real_estate_id,
+            source_image_url=source_image_url,
+            generated_image_url=generated_image_url,
+            stats=stats
+        )
+        
+        # Add to session and commit
+        session.add(new_image)
+        session.commit()
+        
+        # Return the new ID
+        return new_image.id
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error adding image: {str(e)}")
+    finally:
+        session.close()
+
+def get_images_by_real_estate_id(real_estate_id: int) -> List[RealEstateImage]:
+    """
+    Get all images for a specific real estate property using SQLAlchemy ORM
+    
+    Args:
+        real_estate_id: ID of the real estate property
+        
+    Returns:
+        List[RealEstateImage]: List of image records associated with the property
+        
+    Raises:
+        Exception: If there was an error retrieving images
+    """
+    session = Session()
+    try:
+        # Query using SQLAlchemy ORM
+        images = (
+            session.query(RealEstateImage)
+            .filter(RealEstateImage.real_estate_id == real_estate_id)
+            .order_by(RealEstateImage.created_at.desc())
+            .all()
+        )
+        
+        return images
+    except Exception as e:
+        raise Exception(f"Error retrieving images: {str(e)}")
+    finally:
+        session.close()
+
+def update_image(image_id: int, updates: Dict[str, Any]) -> bool:
+    """
+    Update an existing real estate image using SQLAlchemy ORM
+    
+    Args:
+        image_id: ID of the image to update
+        updates: Dictionary of fields to update
+        
+    Returns:
+        bool: True if update was successful
+        
+    Raises:
+        Exception: If there was an error updating the image
+    """
+    session = Session()
+    try:
+        # Get the existing image
+        image = session.query(RealEstateImage).filter(RealEstateImage.id == image_id).first()
+        
+        # If image doesn't exist, return False
+        if not image:
+            return False
+        
+        # Update only the fields that are provided in updates
+        update_fields = {}
+        for key, value in updates.items():
+            if key in ["source_image_url", "generated_image_url", "stats"] and hasattr(image, key):
+                update_fields[key] = value
+        
+        # Apply updates
+        for key, value in update_fields.items():
+            setattr(image, key, value)
+        
+        # Commit changes
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error updating image: {str(e)}")
+    finally:
+        session.close()
+
+def delete_image(image_id: int) -> bool:
+    """
+    Delete a real estate image using SQLAlchemy ORM
+    
+    Args:
+        image_id: ID of the image to delete
+        
+    Returns:
+        bool: True if deletion was successful
+        
+    Raises:
+        Exception: If there was an error deleting the image
+    """
+    session = Session()
+    try:
+        # Get image by ID
+        image = session.query(RealEstateImage).filter(RealEstateImage.id == image_id).first()
+        
+        # If image doesn't exist, return False
+        if not image:
+            return False
+        
+        # Delete the image
+        session.delete(image)
+        session.commit()
+        return True
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error deleting image: {str(e)}")
+    finally:
+        session.close()

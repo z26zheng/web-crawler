@@ -1,0 +1,7 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/web-crawler-env/bin/python",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/web-crawler-env/lib/python3.13/site-packages"
+    ],
+    "python.linting.enabled": true
+}
