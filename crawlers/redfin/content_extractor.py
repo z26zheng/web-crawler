@@ -4,17 +4,14 @@ import sys
 import time
 from datetime import datetime
 
-# Import handling for both direct execution and package import scenarios
-try:
-    # When imported as part of a package
-    from . import util
-    from database.real_estate.models import RealEstate
-except ImportError:
-    # When run directly
-    import util
-    # Add the project root directory to the Python path
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-    from database.real_estate.models import RealEstate
+# Add the project root directory to the Python path first
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "../.."))
+sys.path.insert(0, project_root)
+
+# Import after setting up path
+import crawlers.redfin.util as util
+from database.real_estate.models import PropertyMetadata
 
 class RedfinContentExtractor:
     def __init__(self):
@@ -290,13 +287,13 @@ class RedfinContentExtractor:
     
     def extract_property_metadata(self, property_page):
         """
-        Extract property metadata and construct a RealEstate object
+        Extract property metadata and construct a PropertyMetadata object
         
         Args:
             property_page: Playwright page object containing property details
             
         Returns:
-            RealEstate: SQLAlchemy ORM model instance with extracted data
+            PropertyMetadata: SQLAlchemy ORM model instance with extracted data
         """
         print("Extracting property metadata...")
         
@@ -313,8 +310,8 @@ class RedfinContentExtractor:
             # Extract source URL
             source_url = self.extract_source_url(property_page)
             
-            # Create the RealEstate object with extracted data
-            real_estate = RealEstate(
+            # Create the PropertyMetadata object with extracted data
+            property_metadata = PropertyMetadata(
                 address=address_data,  # JSONB field
                 pending_date=pending_date,  # Date field
                 price=price,  # Integer field
@@ -322,11 +319,11 @@ class RedfinContentExtractor:
                 status="PENDING" if pending_date else "ACTIVE"  # Set status based on pending_date
             )
             
-            print(f"Created RealEstate object with address: {address_data}, price: {price}, pending_date: {pending_date}")
-            return real_estate
+            print(f"Created PropertyMetadata object {property_metadata.to_dict()}")
+            return property_metadata
             
         except Exception as e:
-            print(f"Error creating RealEstate object: {str(e)}")
+            print(f"Error creating PropertyMetadata object: {str(e)}")
             return None
 
     

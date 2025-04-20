@@ -1,5 +1,5 @@
 """
-Module for handling real estate operations using SQLAlchemy ORM
+Module for handling property metadata operations using SQLAlchemy ORM
 """
 import os
 import sys
@@ -10,15 +10,15 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
 
 from database import Session
-from database.real_estate.models import RealEstate, RealEstateImage
+from database.real_estate.models import PropertyMetadata, PropertyImage
 
-# Real Estate Operations
+# Property Metadata Operations
 
-def add_real_estate(address: Dict[str, Any], source_url: Dict[str, Any] = None, 
-                    pending_date: Optional[str] = None, status: Optional[str] = None, 
-                    price: Optional[int] = None, qr_code_url: Optional[str] = None) -> int:
+def add_property(address: Dict[str, Any], source_url: Dict[str, Any] = None, 
+                pending_date: Optional[str] = None, status: Optional[str] = None, 
+                price: Optional[int] = None, qr_code_url: Optional[str] = None) -> int:
     """
-    Add a new real estate property using SQLAlchemy ORM
+    Add a new property using SQLAlchemy ORM
     
     Args:
         address: Property address as a dictionary (required)
@@ -36,8 +36,8 @@ def add_real_estate(address: Dict[str, Any], source_url: Dict[str, Any] = None,
     """
     session = Session()
     try:
-        # Create a new RealEstate instance
-        new_property = RealEstate(
+        # Create a new PropertyMetadata instance
+        new_property = PropertyMetadata(
             address=address,
             source_url=source_url or {},
             pending_date=pending_date,
@@ -54,19 +54,19 @@ def add_real_estate(address: Dict[str, Any], source_url: Dict[str, Any] = None,
         return new_property.id
     except Exception as e:
         session.rollback()
-        raise Exception(f"Error adding real estate property: {str(e)}")
+        raise Exception(f"Error adding property: {str(e)}")
     finally:
         session.close()
 
-def get_real_estate(property_id: int) -> Optional[RealEstate]:
+def get_property(property_id: int) -> Optional[PropertyMetadata]:
     """
-    Get a real estate property by ID using SQLAlchemy ORM
+    Get a property by ID using SQLAlchemy ORM
     
     Args:
         property_id: ID of the property to retrieve
         
     Returns:
-        Optional[RealEstate]: Property object if found, None otherwise
+        Optional[PropertyMetadata]: Property object if found, None otherwise
         
     Raises:
         Exception: If there was an error retrieving the property
@@ -74,23 +74,23 @@ def get_real_estate(property_id: int) -> Optional[RealEstate]:
     session = Session()
     try:
         # Query using SQLAlchemy ORM
-        property = session.query(RealEstate).filter(RealEstate.id == property_id).first()
+        property = session.query(PropertyMetadata).filter(PropertyMetadata.id == property_id).first()
         return property
     except Exception as e:
-        raise Exception(f"Error retrieving real estate property: {str(e)}")
+        raise Exception(f"Error retrieving property: {str(e)}")
     finally:
         session.close()
 
-def get_real_estates(limit: int = 100, offset: int = 0) -> List[RealEstate]:
+def get_properties(limit: int = 100, offset: int = 0) -> List[PropertyMetadata]:
     """
-    Get a list of real estate properties using SQLAlchemy ORM
+    Get a list of properties using SQLAlchemy ORM
     
     Args:
         limit: Maximum number of properties to retrieve
         offset: Number of properties to skip
         
     Returns:
-        List[RealEstate]: List of property objects
+        List[PropertyMetadata]: List of property objects
         
     Raises:
         Exception: If there was an error retrieving properties
@@ -99,21 +99,21 @@ def get_real_estates(limit: int = 100, offset: int = 0) -> List[RealEstate]:
     try:
         # Query using SQLAlchemy ORM with pagination
         properties = (
-            session.query(RealEstate)
-            .order_by(RealEstate.created_at.desc())
+            session.query(PropertyMetadata)
+            .order_by(PropertyMetadata.created_at.desc())
             .limit(limit)
             .offset(offset)
             .all()
         )
         return properties
     except Exception as e:
-        raise Exception(f"Error retrieving real estate properties: {str(e)}")
+        raise Exception(f"Error retrieving properties: {str(e)}")
     finally:
         session.close()
 
-def update_real_estate(property_id: int, updates: Dict[str, Any]) -> bool:
+def update_property(property_id: int, updates: Dict[str, Any]) -> bool:
     """
-    Update an existing real estate property using SQLAlchemy ORM
+    Update an existing property using SQLAlchemy ORM
     
     Args:
         property_id: ID of the property to update
@@ -128,7 +128,7 @@ def update_real_estate(property_id: int, updates: Dict[str, Any]) -> bool:
     session = Session()
     try:
         # Get the existing property
-        property = session.query(RealEstate).filter(RealEstate.id == property_id).first()
+        property = session.query(PropertyMetadata).filter(PropertyMetadata.id == property_id).first()
         
         # If property doesn't exist, return False
         if not property:
@@ -147,13 +147,13 @@ def update_real_estate(property_id: int, updates: Dict[str, Any]) -> bool:
         return True
     except Exception as e:
         session.rollback()
-        raise Exception(f"Error updating real estate property: {str(e)}")
+        raise Exception(f"Error updating property: {str(e)}")
     finally:
         session.close()
 
-def delete_real_estate(property_id: int) -> bool:
+def delete_property(property_id: int) -> bool:
     """
-    Delete a real estate property using SQLAlchemy ORM
+    Delete a property using SQLAlchemy ORM
     
     Args:
         property_id: ID of the property to delete
@@ -167,7 +167,7 @@ def delete_real_estate(property_id: int) -> bool:
     session = Session()
     try:
         # Get property by ID
-        property = session.query(RealEstate).filter(RealEstate.id == property_id).first()
+        property = session.query(PropertyMetadata).filter(PropertyMetadata.id == property_id).first()
         
         # If property doesn't exist, return False
         if not property:
@@ -179,19 +179,19 @@ def delete_real_estate(property_id: int) -> bool:
         return True
     except Exception as e:
         session.rollback()
-        raise Exception(f"Error deleting real estate property: {str(e)}")
+        raise Exception(f"Error deleting property: {str(e)}")
     finally:
         session.close()
 
 # Image Operations
 
-def add_image(real_estate_id: int, source_image_url: Optional[str] = None, 
+def add_image(property_id: int, source_image_url: Optional[str] = None, 
               generated_image_url: Optional[str] = None, stats: Optional[str] = None) -> int:
     """
-    Add a new image for a real estate property using SQLAlchemy ORM
+    Add a new image for a property using SQLAlchemy ORM
     
     Args:
-        real_estate_id: ID of the real estate property
+        property_id: ID of the property
         source_image_url: URL of the source image
         generated_image_url: URL of the generated image
         stats: Statistics or information about the image
@@ -204,9 +204,9 @@ def add_image(real_estate_id: int, source_image_url: Optional[str] = None,
     """
     session = Session()
     try:
-        # Create a new RealEstateImage instance
-        new_image = RealEstateImage(
-            real_estate_id=real_estate_id,
+        # Create a new PropertyImage instance
+        new_image = PropertyImage(
+            property_id=property_id,
             source_image_url=source_image_url,
             generated_image_url=generated_image_url,
             stats=stats
@@ -224,15 +224,15 @@ def add_image(real_estate_id: int, source_image_url: Optional[str] = None,
     finally:
         session.close()
 
-def get_images_by_real_estate_id(real_estate_id: int) -> List[RealEstateImage]:
+def get_images_by_property_id(property_id: int) -> List[PropertyImage]:
     """
-    Get all images for a specific real estate property using SQLAlchemy ORM
+    Get all images for a specific property using SQLAlchemy ORM
     
     Args:
-        real_estate_id: ID of the real estate property
+        property_id: ID of the property
         
     Returns:
-        List[RealEstateImage]: List of image records associated with the property
+        List[PropertyImage]: List of image records associated with the property
         
     Raises:
         Exception: If there was an error retrieving images
@@ -241,9 +241,9 @@ def get_images_by_real_estate_id(real_estate_id: int) -> List[RealEstateImage]:
     try:
         # Query using SQLAlchemy ORM
         images = (
-            session.query(RealEstateImage)
-            .filter(RealEstateImage.real_estate_id == real_estate_id)
-            .order_by(RealEstateImage.created_at.desc())
+            session.query(PropertyImage)
+            .filter(PropertyImage.property_id == property_id)
+            .order_by(PropertyImage.created_at.desc())
             .all()
         )
         
@@ -255,7 +255,7 @@ def get_images_by_real_estate_id(real_estate_id: int) -> List[RealEstateImage]:
 
 def update_image(image_id: int, updates: Dict[str, Any]) -> bool:
     """
-    Update an existing real estate image using SQLAlchemy ORM
+    Update an existing property image using SQLAlchemy ORM
     
     Args:
         image_id: ID of the image to update
@@ -270,7 +270,7 @@ def update_image(image_id: int, updates: Dict[str, Any]) -> bool:
     session = Session()
     try:
         # Get the existing image
-        image = session.query(RealEstateImage).filter(RealEstateImage.id == image_id).first()
+        image = session.query(PropertyImage).filter(PropertyImage.id == image_id).first()
         
         # If image doesn't exist, return False
         if not image:
@@ -297,7 +297,7 @@ def update_image(image_id: int, updates: Dict[str, Any]) -> bool:
 
 def delete_image(image_id: int) -> bool:
     """
-    Delete a real estate image using SQLAlchemy ORM
+    Delete a property image using SQLAlchemy ORM
     
     Args:
         image_id: ID of the image to delete
@@ -311,7 +311,7 @@ def delete_image(image_id: int) -> bool:
     session = Session()
     try:
         # Get image by ID
-        image = session.query(RealEstateImage).filter(RealEstateImage.id == image_id).first()
+        image = session.query(PropertyImage).filter(PropertyImage.id == image_id).first()
         
         # If image doesn't exist, return False
         if not image:
