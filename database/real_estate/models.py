@@ -17,7 +17,7 @@ class PropertyMetadata(Base):
     
     Fields match the database schema defined in create_table.py:
     - id: Auto-incrementing primary key
-    - source_url: JSON data storing source URL information
+    - source_url: String storing the property source URL (unique)
     - address: JSONB data storing address information (required)
     - pending_date: Date when the property is pending
     - status: Current status of the property
@@ -30,7 +30,7 @@ class PropertyMetadata(Base):
 
     # Columns
     id = Column(Integer, primary_key=True)
-    source_url = Column(JSON, default={})
+    source_url = Column(Text, unique=True)
     address = Column(JSONB, nullable=False)
     pending_date = Column(Date)
     status = Column(String(50))
@@ -61,10 +61,7 @@ class PropertyMetadata(Base):
         """Create model from dictionary"""
         data_copy = data.copy()
         
-        # Convert JSON fields if they're strings
-        if 'source_url' in data_copy and isinstance(data_copy['source_url'], str):
-            data_copy['source_url'] = json.loads(data_copy['source_url'])
-            
+        # Convert address field if it's a string
         if 'address' in data_copy and isinstance(data_copy['address'], str):
             data_copy['address'] = json.loads(data_copy['address'])
         

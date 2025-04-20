@@ -3,7 +3,7 @@ Module for handling property metadata operations using SQLAlchemy ORM
 """
 import os
 import sys
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 # Add the project root directory to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -14,44 +14,34 @@ from database.real_estate.models import PropertyMetadata, PropertyImage
 
 # Property Metadata Operations
 
-def add_property(address: Dict[str, Any], source_url: Dict[str, Any] = None, 
-                pending_date: Optional[str] = None, status: Optional[str] = None, 
-                price: Optional[int] = None, qr_code_url: Optional[str] = None) -> int:
+def add_property(property_metadata: PropertyMetadata) -> PropertyMetadata:
     """
     Add a new property using SQLAlchemy ORM
     
     Args:
-        address: Property address as a dictionary (required)
-        source_url: Source URL information
-        pending_date: Date when the property is pending
-        status: Current status of the property
-        price: Integer value representing property price
-        qr_code_url: URL for QR code
+        property_metadata: PropertyMetadata object to add to the database
         
     Returns:
-        int: ID of the newly created property record
+        PropertyMetadata: Fresh PropertyMetadata object loaded from the database
         
     Raises:
         Exception: If there was an error adding the property
     """
     session = Session()
     try:
-        # Create a new PropertyMetadata instance
-        new_property = PropertyMetadata(
-            address=address,
-            source_url=source_url or {},
-            pending_date=pending_date,
-            status=status,
-            price=price,
-            qr_code_url=qr_code_url
-        )
-        
         # Add to session and commit
-        session.add(new_property)
+        session.add(property_metadata)
         session.commit()
         
-        # Return the new ID
-        return new_property.id
+        # Get the ID of the newly inserted property
+        property_id = property_metadata.id
+        
+        # Refresh the property from the database to get the latest state
+        fresh_property = session.query(PropertyMetadata).filter(
+            PropertyMetadata.id == property_id
+        ).first()
+        
+        return fresh_property
     except Exception as e:
         session.rollback()
         raise Exception(f"Error adding property: {str(e)}")
@@ -180,6 +170,72 @@ def delete_property(property_id: int) -> bool:
     except Exception as e:
         session.rollback()
         raise Exception(f"Error deleting property: {str(e)}")
+    finally:
+        session.close()
+
+def upsert_property(property_metadata: PropertyMetadata) -> Tuple[PropertyMetadata, bool]:
+    """
+    Upsert (update or insert) a property based on source_url as the unique key
+    
+    Args:
+        property_metadata: PropertyMetadata object to upsert
+        
+    Returns:
+        Tuple[PropertyMetadata, bool]: (fresh_property, is_new) where:
+            - fresh_property is a fresh PropertyMetadata object loaded from the database
+            - is_new is True if a new record was created, False if an existing one was updated
+        
+    Raises:
+        Exception: If there was an error upserting the property
+    """
+    if not property_metadata.source_url:
+        raise ValueError("source_url is required for upsert operation")
+    
+    session = Session()
+    try:
+        # Check if a property with the given source_url already exists
+        existing_property = session.query(PropertyMetadata).filter(
+            PropertyMetadata.source_url == property_metadata.source_url
+        ).first()
+        
+        is_new = False
+        
+        if existing_property:
+            # Update the existing property with non-None values from the input
+            if property_metadata.address is not None:
+                existing_property.address = property_metadata.address
+            if property_metadata.pending_date is not None:
+                existing_property.pending_date = property_metadata.pending_date
+            if property_metadata.status is not None:
+                existing_property.status = property_metadata.status
+            if property_metadata.price is not None:
+                existing_property.price = property_metadata.price
+            if property_metadata.qr_code_url is not None:
+                existing_property.qr_code_url = property_metadata.qr_code_url
+            
+            property_id = existing_property.id
+            
+        else:
+            # Create a new property
+            session.add(property_metadata)
+            is_new = True
+        
+        # Commit changes
+        session.commit()
+        
+        # Get the ID based on whether it's new or existing
+        property_id = property_metadata.id if is_new else existing_property.id
+        
+        # Refresh from database
+        fresh_property = session.query(PropertyMetadata).filter(
+            PropertyMetadata.id == property_id
+        ).first()
+        
+        return fresh_property, is_new
+    
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error upserting property: {str(e)}")
     finally:
         session.close()
 

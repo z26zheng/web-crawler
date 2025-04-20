@@ -253,13 +253,13 @@ class RedfinContentExtractor:
     
     def extract_source_url(self, property_page):
         """
-        Extract the absolute URL of the property page
+        Extract the absolute URL of the property page as a string
         
         Args:
             property_page: Playwright page object containing property details
             
         Returns:
-            dict: JSON dictionary with property_page URL, None if not available
+            str: Property page URL as a string, None if not available
         """
         print("Extracting property source URL...")
         try:
@@ -270,13 +270,13 @@ class RedfinContentExtractor:
                 # Ensure it's an absolute URL
                 if url.startswith('http'):
                     print(f"Extracted property URL: {url}")
-                    return {"property_page": url}
+                    return url
                 else:
                     # If somehow we got a relative URL, make it absolute (unlikely in Playwright)
-                    base_url = "https://www.redfin.com"
+                    base_url = "www.redfin.com"
                     absolute_url = f"{base_url.rstrip('/')}/{url.lstrip('/')}"
                     print(f"Converted relative URL to absolute: {absolute_url}")
-                    return {"property_page": absolute_url}
+                    return absolute_url
             else:
                 print("Property URL is empty or not available")
                 return None
@@ -307,7 +307,7 @@ class RedfinContentExtractor:
             # Extract pending date
             pending_date = self.extract_property_pending_date(property_page)
             
-            # Extract source URL
+            # Extract source URL (now as a string)
             source_url = self.extract_source_url(property_page)
             
             # Create the PropertyMetadata object with extracted data
@@ -315,7 +315,7 @@ class RedfinContentExtractor:
                 address=address_data,  # JSONB field
                 pending_date=pending_date,  # Date field
                 price=price,  # Integer field
-                source_url=source_url,  # Stored as string in JSON field
+                source_url=source_url,  # Now stored as string
                 status="PENDING" if pending_date else "ACTIVE"  # Set status based on pending_date
             )
             

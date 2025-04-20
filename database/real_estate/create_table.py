@@ -50,7 +50,7 @@ def create_property_metadata_table():
     Create the public.property_metadata table if it doesn't exist
     
     Fields:
-    - source_url: JSONB - stores source URL information
+    - source_url: TEXT - stores source URL as a string (unique constraint)
     - address: JSONB - stores address information
     - pending_date: DATE - stores a date
     - status: VARCHAR(50) - stores a string representing status
@@ -66,7 +66,7 @@ def create_property_metadata_table():
         query = text("""
         CREATE TABLE IF NOT EXISTS public.property_metadata (
             id SERIAL PRIMARY KEY,
-            source_url JSONB,
+            source_url TEXT UNIQUE,
             address JSONB NOT NULL,
             pending_date DATE,
             status VARCHAR(50),
@@ -84,6 +84,9 @@ def create_property_metadata_table():
         
         -- Create index on price for range queries
         CREATE INDEX IF NOT EXISTS idx_property_metadata_price ON public.property_metadata(price);
+        
+        -- Create index on source_url for uniqueness checks
+        CREATE INDEX IF NOT EXISTS idx_property_metadata_source_url ON public.property_metadata(source_url);
         """)
         
         session.execute(query)
