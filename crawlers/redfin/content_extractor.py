@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 import os
 import time
-from . import util
+# Fix import to work in both direct execution and package import scenarios
+try:
+    # When imported as part of a package
+    from . import util
+except ImportError:
+    # When run directly
+    import util
 
 class RedfinContentExtractor:
     def __init__(self):
@@ -31,32 +37,58 @@ class RedfinContentExtractor:
         
         return page
     
-    def process_property_page(self, context, property_page):
+    def process_property_page(self, context, page, card_selector):
         """
-        Process a property details page using an existing page object
+        Process a property details page by either:
+        1. Clicking on a card selector in the given page to open a new tab, or
+        2. Using an already opened property page
         
         Args:
             context: Browser context for creating new pages
-            property_page: Existing page object
+            page: Playwright page object containing search results (if clicking on a card)
+            card_selector: CSS selector for the property card to click (e.g. '#MapHomeCard_0')
+            property_page: Existing property page object (if already opened)
             
         Returns:
-            Page: The page object after processing
+            Page: The property page object after processing
         """
-        if property_page:
-            print("Processing property details page...")
-            # No navigation needed, just capture the content
-            property_page, _, _ = util.navigate_to_page(
-                property_page,
-                property_page.url,
-                page_name="property_details_page",
-                debug_dir=self.debug_dir,
-                scroll_down=False  # Don't scroll again as this is already loaded
-            )
-            print("Property details page processed successfully")
-            return property_page
+        property_page = None
         
-        print("No property page provided to process")
-        return None
+        print(f"Looking for property card element with selector '{card_selector}'...")
+        try:
+            # Wait for the element to be visible
+            card = page.wait_for_selector(card_selector, timeout=10000, state='visible')
+            
+            if card:
+                print("Found property card element. Opening in a new tab...")
+                with context.expect_page() as new_page_info:
+                    # Hold down Meta key (Command on Mac) while clicking to open in a new tab
+                    page.click(card_selector, modifiers=['Meta'])
+                
+                property_page = new_page_info.value
+                
+                # Bring focus to the newly opened tab
+                property_page.bring_to_front()
+                print(f"Browser navigated to new tab with URL: {property_page.url}")
+                
+                # Wait a bit for content to load
+                print("Processing property details page...")
+                time.sleep(2)
+                
+                # Close the tab if we opened it during this function call
+                print("Closing the property details tab")
+                property_page.close()
+                time.sleep(1)
+                
+                print("Property details page processed successfully")
+                return property_page
+            else:
+                print(f"Property card element with selector '{card_selector}' was not found on the page")
+                return None
+        except Exception as e:
+            print(f"Error when trying to open property details: {str(e)}")
+            return None
+
     
     def start(self, url):
         """
@@ -77,28 +109,11 @@ class RedfinContentExtractor:
             # Process the search results page using the new method
             page = self.process_search_page(page, url)
             
-            # Try to find and click on the MapHomeCard_0 element in a new tab
-            print("Looking for property card element with ID 'MapHomeCard_0'...")
+            # Use the updated process_property_page method to handle clicking and processing
+            property_page = self.process_property_page(context, page=page, card_selector='#MapHomeCard_0')
             
-            try:
-                # Wait for the element to be visible
-                card = page.wait_for_selector('#MapHomeCard_0', timeout=10000, state='visible')
-                
-                if card:
-                    print("Found property card element. Opening in a new tab...")
-                    with context.expect_page() as new_page_info:
-                        # Hold down Meta key (Command on Mac) while clicking to open in a new tab
-                        page.click('#MapHomeCard_0', modifiers=['Meta'])
-                    
-                    property_page = new_page_info.value
-                    
-                    # Process the property details page
-                    property_page = self.process_property_page(context, property_page=property_page)
-                else:
-                    print("Property card element was not found on the page")
-            except Exception as e:
-                print(f"Error when trying to open property details: {str(e)}")
-                print("Continuing with the search results page content only")
+            # Here you can do additional processing with property_page data if needed
+            # For example, you could extract specific information from the property page
             
         except Exception as e:
             print(f"Error extracting content: {str(e)}")

@@ -91,13 +91,12 @@ def navigate_to_page(page: Page, url: str, page_name: str = None, debug_dir: str
     
     # Wait for content to load
     print("Waiting for page content to fully load...")
-    time.sleep(5)
+    time.sleep(2)
     
     # Scroll down to simulate user behavior and trigger lazy loading
     if scroll_down:
         for _ in range(3):
             page.mouse.wheel(0, 300)
-            time.sleep(1)
     
     # Save debug content if page_name is provided
     html_file = None
