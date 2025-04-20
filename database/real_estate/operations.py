@@ -241,39 +241,34 @@ def upsert_property(property_metadata: PropertyMetadata) -> Tuple[PropertyMetada
 
 # Image Operations
 
-def add_image(property_id: int, source_image_url: Optional[str] = None, 
-              generated_image_url: Optional[str] = None, stats: Optional[str] = None) -> int:
+def add_image(property_image: PropertyImage) -> PropertyImage:
     """
     Add a new image for a property using SQLAlchemy ORM
     
     Args:
-        property_id: ID of the property
-        source_image_url: URL of the source image
-        generated_image_url: URL of the generated image
-        stats: Statistics or information about the image
+        property_image: PropertyImage object to add to the database
         
     Returns:
-        int: ID of the newly created image record
+        PropertyImage: Fresh PropertyImage object loaded from the database
     
     Raises:
         Exception: If there was an error adding the image
     """
     session = Session()
     try:
-        # Create a new PropertyImage instance
-        new_image = PropertyImage(
-            property_id=property_id,
-            source_image_url=source_image_url,
-            generated_image_url=generated_image_url,
-            stats=stats
-        )
-        
         # Add to session and commit
-        session.add(new_image)
+        session.add(property_image)
         session.commit()
         
-        # Return the new ID
-        return new_image.id
+        # Get the ID of the newly inserted image
+        image_id = property_image.id
+        
+        # Refresh the image from the database to get the latest state
+        fresh_image = session.query(PropertyImage).filter(
+            PropertyImage.id == image_id
+        ).first()
+        
+        return fresh_image
     except Exception as e:
         session.rollback()
         raise Exception(f"Error adding image: {str(e)}")
@@ -380,5 +375,70 @@ def delete_image(image_id: int) -> bool:
     except Exception as e:
         session.rollback()
         raise Exception(f"Error deleting image: {str(e)}")
+    finally:
+        session.close()
+
+def upsert_image(property_image: PropertyImage) -> Tuple[PropertyImage, bool]:
+    """
+    Upsert (update or insert) a property image based on source_image_url as the unique key
+    
+    Args:
+        property_image: PropertyImage object to upsert
+        
+    Returns:
+        Tuple[PropertyImage, bool]: (fresh_image, is_new) where:
+            - fresh_image is a fresh PropertyImage object loaded from the database
+            - is_new is True if a new record was created, False if an existing one was updated
+        
+    Raises:
+        Exception: If there was an error upserting the image
+    """
+    if not property_image.source_image_url:
+        raise ValueError("source_image_url is required for upsert operation")
+    
+    if not property_image.property_id:
+        raise ValueError("property_id is required for upsert operation")
+    
+    session = Session()
+    try:
+        # Check if an image with the given source_image_url already exists
+        existing_image = session.query(PropertyImage).filter(
+            PropertyImage.source_image_url == property_image.source_image_url
+        ).first()
+        
+        is_new = False
+        
+        if existing_image:
+            # Update the existing image with non-None values from the input
+            if property_image.property_id is not None:
+                existing_image.property_id = property_image.property_id
+            if property_image.generated_image_url is not None:
+                existing_image.generated_image_url = property_image.generated_image_url
+            if property_image.stats is not None:
+                existing_image.stats = property_image.stats
+            
+            image_id = existing_image.id
+            
+        else:
+            # Create a new image
+            session.add(property_image)
+            is_new = True
+        
+        # Commit changes
+        session.commit()
+        
+        # Get the ID based on whether it's new or existing
+        image_id = property_image.id if is_new else existing_image.id
+        
+        # Refresh from database
+        fresh_image = session.query(PropertyImage).filter(
+            PropertyImage.id == image_id
+        ).first()
+        
+        return fresh_image, is_new
+    
+    except Exception as e:
+        session.rollback()
+        raise Exception(f"Error upserting image: {str(e)}")
     finally:
         session.close()

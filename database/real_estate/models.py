@@ -75,7 +75,7 @@ class PropertyImage(Base):
     Fields:
     - id: Auto-incrementing primary key
     - property_id: Foreign key reference to the property_metadata table
-    - source_image_url: URL for the original image
+    - source_image_url: URL for the original image (unique)
     - generated_image_url: URL for the generated image
     - stats: Statistics or information about the image
     - created_at: Timestamp when record was created
@@ -86,7 +86,7 @@ class PropertyImage(Base):
     # Columns
     id = Column(Integer, primary_key=True)
     property_id = Column(Integer, ForeignKey('property_metadata.id', ondelete='CASCADE'), nullable=False)
-    source_image_url = Column(Text)
+    source_image_url = Column(Text, unique=True)
     generated_image_url = Column(Text)
     stats = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

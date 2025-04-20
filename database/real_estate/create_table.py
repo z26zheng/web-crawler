@@ -106,7 +106,7 @@ def create_property_images_table():
     
     Fields:
     - property_id: INTEGER - foreign key reference to the property_metadata table
-    - source_image_url: TEXT - stores a URL for the original image
+    - source_image_url: TEXT - stores a URL for the original image (unique constraint)
     - generated_image_url: TEXT - stores a URL for the generated image
     - stats: TEXT - stores statistics or information about the image
     
@@ -120,7 +120,7 @@ def create_property_images_table():
         CREATE TABLE IF NOT EXISTS public.property_images (
             id SERIAL PRIMARY KEY,
             property_id INTEGER NOT NULL,
-            source_image_url TEXT,
+            source_image_url TEXT UNIQUE,
             generated_image_url TEXT,
             stats TEXT,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -130,6 +130,9 @@ def create_property_images_table():
         
         -- Create index on property_id for faster lookups and joins
         CREATE INDEX IF NOT EXISTS idx_property_images_property_id ON public.property_images(property_id);
+        
+        -- Create index on source_image_url for uniqueness checks
+        CREATE INDEX IF NOT EXISTS idx_property_images_source_url ON public.property_images(source_image_url);
         """)
         
         session.execute(query)
