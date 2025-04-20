@@ -74,10 +74,11 @@ class PropertyImage(Base):
     
     Fields:
     - id: Auto-incrementing primary key
-    - property_id: Foreign key reference to the property_metadata table
+    - property_metadata_id: Foreign key reference to the property_metadata table
+    - category: String storing the category of the image (e.g., Kitchen, Bathroom)
     - source_image_url: URL for the original image (unique)
     - generated_image_url: URL for the generated image
-    - stats: Statistics or information about the image
+    - state: State information about the image
     - created_at: Timestamp when record was created
     - updated_at: Timestamp when record was last updated
     """
@@ -85,10 +86,11 @@ class PropertyImage(Base):
     
     # Columns
     id = Column(Integer, primary_key=True)
-    property_id = Column(Integer, ForeignKey('property_metadata.id', ondelete='CASCADE'), nullable=False)
+    property_metadata_id = Column(Integer, ForeignKey('property_metadata.id', ondelete='CASCADE'), nullable=False)
+    category = Column(String(50))
     source_image_url = Column(Text, unique=True)
     generated_image_url = Column(Text)
-    stats = Column(Text)
+    state = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -99,10 +101,11 @@ class PropertyImage(Base):
         """Convert model to dictionary"""
         return {
             'id': self.id,
-            'property_id': self.property_id,
+            'property_metadata_id': self.property_metadata_id,
+            'category': self.category,
             'source_image_url': self.source_image_url,
             'generated_image_url': self.generated_image_url,
-            'stats': self.stats,
+            'state': self.state,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }

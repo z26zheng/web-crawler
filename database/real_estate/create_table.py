@@ -105,10 +105,11 @@ def create_property_images_table():
     Create the public.property_images table if it doesn't exist
     
     Fields:
-    - property_id: INTEGER - foreign key reference to the property_metadata table
+    - property_metadata_id: INTEGER - foreign key reference to the property_metadata table
+    - category: VARCHAR(50) - stores the image category (e.g. Kitchen, Bathroom)
     - source_image_url: TEXT - stores a URL for the original image (unique constraint)
     - generated_image_url: TEXT - stores a URL for the generated image
-    - stats: TEXT - stores statistics or information about the image
+    - state: TEXT - stores the state information about the image
     
     Returns:
         bool: True if the table was created successfully, False otherwise
@@ -119,17 +120,21 @@ def create_property_images_table():
         query = text("""
         CREATE TABLE IF NOT EXISTS public.property_images (
             id SERIAL PRIMARY KEY,
-            property_id INTEGER NOT NULL,
+            property_metadata_id INTEGER NOT NULL,
+            category VARCHAR(50),
             source_image_url TEXT UNIQUE,
             generated_image_url TEXT,
-            stats TEXT,
+            state TEXT,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (property_id) REFERENCES public.property_metadata (id) ON DELETE CASCADE
+            FOREIGN KEY (property_metadata_id) REFERENCES public.property_metadata (id) ON DELETE CASCADE
         );
         
-        -- Create index on property_id for faster lookups and joins
-        CREATE INDEX IF NOT EXISTS idx_property_images_property_id ON public.property_images(property_id);
+        -- Create index on property_metadata_id for faster lookups and joins
+        CREATE INDEX IF NOT EXISTS idx_property_images_property_metadata_id ON public.property_images(property_metadata_id);
+        
+        -- Create index on category for filtering
+        CREATE INDEX IF NOT EXISTS idx_property_images_category ON public.property_images(category);
         
         -- Create index on source_image_url for uniqueness checks
         CREATE INDEX IF NOT EXISTS idx_property_images_source_url ON public.property_images(source_image_url);

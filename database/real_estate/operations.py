@@ -275,12 +275,12 @@ def add_image(property_image: PropertyImage) -> PropertyImage:
     finally:
         session.close()
 
-def get_images_by_property_id(property_id: int) -> List[PropertyImage]:
+def get_images_by_property_metadata_id(property_metadata_id: int) -> List[PropertyImage]:
     """
     Get all images for a specific property using SQLAlchemy ORM
     
     Args:
-        property_id: ID of the property
+        property_metadata_id: ID of the property
         
     Returns:
         List[PropertyImage]: List of image records associated with the property
@@ -293,7 +293,7 @@ def get_images_by_property_id(property_id: int) -> List[PropertyImage]:
         # Query using SQLAlchemy ORM
         images = (
             session.query(PropertyImage)
-            .filter(PropertyImage.property_id == property_id)
+            .filter(PropertyImage.property_metadata_id == property_metadata_id)
             .order_by(PropertyImage.created_at.desc())
             .all()
         )
@@ -301,6 +301,39 @@ def get_images_by_property_id(property_id: int) -> List[PropertyImage]:
         return images
     except Exception as e:
         raise Exception(f"Error retrieving images: {str(e)}")
+    finally:
+        session.close()
+
+def get_images_by_category(property_metadata_id: int, category: str) -> List[PropertyImage]:
+    """
+    Get all images for a specific property and category
+    
+    Args:
+        property_metadata_id: ID of the property
+        category: Image category (e.g., 'Kitchen', 'Bathroom')
+        
+    Returns:
+        List[PropertyImage]: List of image records matching the property and category
+        
+    Raises:
+        Exception: If there was an error retrieving images
+    """
+    session = Session()
+    try:
+        # Query using SQLAlchemy ORM
+        images = (
+            session.query(PropertyImage)
+            .filter(
+                PropertyImage.property_metadata_id == property_metadata_id,
+                PropertyImage.category == category
+            )
+            .order_by(PropertyImage.created_at.desc())
+            .all()
+        )
+        
+        return images
+    except Exception as e:
+        raise Exception(f"Error retrieving images by category: {str(e)}")
     finally:
         session.close()
 
@@ -330,7 +363,7 @@ def update_image(image_id: int, updates: Dict[str, Any]) -> bool:
         # Update only the fields that are provided in updates
         update_fields = {}
         for key, value in updates.items():
-            if key in ["source_image_url", "generated_image_url", "stats"] and hasattr(image, key):
+            if key in ["property_metadata_id", "category", "source_image_url", "generated_image_url", "state"] and hasattr(image, key):
                 update_fields[key] = value
         
         # Apply updates
@@ -396,8 +429,8 @@ def upsert_image(property_image: PropertyImage) -> Tuple[PropertyImage, bool]:
     if not property_image.source_image_url:
         raise ValueError("source_image_url is required for upsert operation")
     
-    if not property_image.property_id:
-        raise ValueError("property_id is required for upsert operation")
+    if not property_image.property_metadata_id:
+        raise ValueError("property_metadata_id is required for upsert operation")
     
     session = Session()
     try:
@@ -410,12 +443,14 @@ def upsert_image(property_image: PropertyImage) -> Tuple[PropertyImage, bool]:
         
         if existing_image:
             # Update the existing image with non-None values from the input
-            if property_image.property_id is not None:
-                existing_image.property_id = property_image.property_id
+            if property_image.property_metadata_id is not None:
+                existing_image.property_metadata_id = property_image.property_metadata_id
+            if property_image.category is not None:
+                existing_image.category = property_image.category
             if property_image.generated_image_url is not None:
                 existing_image.generated_image_url = property_image.generated_image_url
-            if property_image.stats is not None:
-                existing_image.stats = property_image.stats
+            if property_image.state is not None:
+                existing_image.state = property_image.state
             
             image_id = existing_image.id
             
