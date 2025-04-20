@@ -75,6 +75,9 @@ class RedfinContentExtractor:
                 print("Processing property details page...")
                 time.sleep(2)
                 
+                # Extract property data
+                property_data = self.extract_property_data(property_page)
+                
                 # Close the tab if we opened it during this function call
                 print("Closing the property details tab")
                 property_page.close()
@@ -88,6 +91,136 @@ class RedfinContentExtractor:
         except Exception as e:
             print(f"Error when trying to open property details: {str(e)}")
             return None
+    
+    def extract_property_data(self, property_page):
+        """
+        Extract property data from the property details page
+        
+        Args:
+            property_page: Playwright page object containing property details
+            
+        Returns:
+            dict: Dictionary containing property information
+        """
+        print("Extracting property data...")
+        
+        try:
+            # Initialize property data dictionary
+            property_data = {}
+            
+            # Extract property metadata (address, etc.)
+            metadata = self.extract_property_metadata(property_page)
+            if metadata:
+                property_data.update(metadata)
+                print(f"Extracted property metadata: {metadata}")
+            
+            # Extract property statistics (price, beds, baths, sqft)
+            stats = self.extract_property_statistics(property_page)
+            if stats:
+                property_data.update(stats)
+                print(f"Extracted property statistics: {stats}")
+            
+            return property_data
+            
+        except Exception as e:
+            print(f"Error extracting property data: {str(e)}")
+            return None
+            
+    def extract_property_statistics(self, property_page):
+        """
+        Extract property statistics including price, beds, baths, and square footage
+        
+        Args:
+            property_page: Playwright page object containing property details
+            
+        Returns:
+            dict: Dictionary containing property statistics
+        """
+        print("Extracting property statistics...")
+        stats = {}
+        
+        try:
+            # Find the main stats container
+            stats_container = property_page.query_selector('.home-main-stats-variant')
+            if not stats_container:
+                print("Property stats container not found")
+                return stats
+                
+            # Extract price
+            price_element = stats_container.query_selector('[data-rf-test-id="abp-price"] .statsValue')
+            if price_element:
+                price_text = price_element.inner_text().strip()
+                # Remove non-numeric characters from the price and convert to float
+                price_numeric = ''.join(c for c in price_text if c.isdigit() or c == '.')
+                try:
+                    stats['price'] = float(price_numeric) if price_numeric else None
+                    stats['price_text'] = price_text
+                    print(f"Extracted price: {price_text}")
+                except ValueError:
+                    print(f"Could not convert price '{price_text}' to a number")
+            
+            return stats
+            
+        except Exception as e:
+            print(f"Error extracting property statistics: {str(e)}")
+            return {}
+    
+    def extract_property_metadata(self, property_page):
+        """
+        Extract property metadata including address from the property details page
+        
+        Args:
+            property_page: Playwright page object containing property details
+            
+        Returns:
+            dict: Dictionary containing property metadata
+        """
+        print("Extracting property metadata...")
+        metadata = {}
+        
+        try:
+            # Extract address from the header element
+            # Look for the address header element
+            address_header = property_page.query_selector('header.address')
+            if address_header:
+                # Extract street address
+                street_element = address_header.query_selector('.street-address')
+                if street_element:
+                    street_address = street_element.inner_text().strip().replace(',', '')
+                    metadata['street_address'] = street_address
+                    print(f"Extracted street address: {street_address}")
+                
+                # Extract city, state, zip
+                city_state_zip_element = address_header.query_selector('.bp-cityStateZip')
+                if city_state_zip_element:
+                    city_state_zip_text = city_state_zip_element.inner_text().strip()
+                    # Parse city, state, zip components
+                    parts = city_state_zip_text.split(',')
+                    if len(parts) > 0:
+                        metadata['city'] = parts[0].strip()
+                    
+                    if len(parts) > 1:
+                        state_zip_parts = parts[1].strip().split()
+                        if len(state_zip_parts) > 0:
+                            metadata['state'] = state_zip_parts[0].strip()
+                        
+                        if len(state_zip_parts) > 1:
+                            metadata['zip_code'] = state_zip_parts[1].strip()
+                    
+                    print(f"Extracted city/state/zip: {city_state_zip_text}")
+                
+                # Combine components into full address
+                if 'street_address' in metadata and 'city' in metadata and 'state' in metadata and 'zip_code' in metadata:
+                    metadata['full_address'] = f"{metadata['street_address']}, {metadata['city']}, {metadata['state']} {metadata['zip_code']}"
+                    print(f"Full address: {metadata['full_address']}")
+            else:
+                print("Address header element not found on the page")
+            
+            return metadata
+            
+        except Exception as e:
+            print(f"Error extracting property metadata: {str(e)}")
+            return {}
 
     
     def start(self, url):
