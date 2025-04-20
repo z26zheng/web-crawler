@@ -21,11 +21,35 @@ class PropertyImagesExtractor:
             filter_name: The name of the filter (e.g. 'Kitchen', 'Bathroom')
         
         Returns:
-            list: List of image URLs for the filter (currently empty)
+            list: List of image URLs for the filter
         """
         print(f"Fetching images for filter: {filter_name}")
-        time.sleep(1)  # Sleep for 1 second as requested
-        return []
+        image_urls = []
+        
+        try:
+            # Wait for image cards to be present in the DOM - using a more specific selector
+            image_cards_selector = '[id^="MB-image-card-"]'
+            property_page.wait_for_selector(image_cards_selector, timeout=5000)
+            
+            # Get all image cards using Playwright's query_selector_all method
+            image_cards = property_page.query_selector_all(image_cards_selector)
+            print(f"Found {len(image_cards)} image cards for filter: {filter_name}")
+            
+            # Extract image URLs from each card using Playwright's native methods
+            for i, card in enumerate(image_cards):
+                # Find the image within the card
+                img = card.query_selector('img.img-card')
+                if img:
+                    # Get the src attribute using Playwright's native getAttribute method
+                    image_url = img.get_attribute('src')
+                    if image_url:
+                        print(f"Image {i}: {image_url}")
+                        image_urls.append(image_url)
+                
+            return image_urls
+        except Exception as e:
+            print(f"Error extracting images for filter {filter_name}: {str(e)}")
+            return image_urls
     
     def open_photo_gallery(self, property_page):
         """
@@ -41,23 +65,24 @@ class PropertyImagesExtractor:
             # Find and click on the photos button
             photos_button_selector = '[data-buttonenum="photos"]'
             
-            # Wait for the button to be visible and clickable
-            property_page.wait_for_selector(photos_button_selector, state='visible', timeout=10000)
+            # Use Playwright's built-in retry mechanism with auto-waiting
+            # This will automatically retry until the element is visible and stable
+            photos_button = property_page.locator(photos_button_selector)
+            
+            # Wait for the button to be visible and clickable with proper state
+            photos_button.wait_for(state='visible', timeout=10000)
             
             # Click on the photos button to open the gallery
-            property_page.click(photos_button_selector)
+            photos_button.click()
             
-            # Wait for gallery to load and stabilize
-            property_page.wait_for_timeout(3000)
+            # Wait for gallery to appear using a more reliable approach
+            # Look for the dialog wrapper which contains the gallery
+            dialog_wrapper = property_page.locator('.DialogWrapper')
+            dialog_wrapper.wait_for(state='visible', timeout=10000)
             
-            # Wait for the dialog wrapper to appear (common container for modals in Redfin)
-            dialog_wrapper_selector = '.DialogWrapper'
-            property_page.wait_for_selector(dialog_wrapper_selector, state='visible', timeout=10000)
-            
-            # Force reload of DOM content to ensure we're working with the updated DOM
-            property_page.evaluate("document.body.innerHTML")
-            
+            print("Successfully opened photo gallery")
             return True
+            
         except Exception as e:
             print(f"Error opening photo gallery: {str(e)}")
             return False
@@ -71,7 +96,11 @@ class PropertyImagesExtractor:
         """
         try:
             property_page.keyboard.press('Escape')
-            property_page.wait_for_timeout(1000)  # Wait for gallery to close
+            
+            # Wait for gallery to disappear with a more reliable approach
+            dialog_wrapper = property_page.locator('.DialogWrapper')
+            dialog_wrapper.wait_for(state='hidden', timeout=5000)
+            print("Gallery closed successfully")
         except Exception as e:
             print(f"Error closing gallery: {str(e)}")
     
@@ -88,87 +117,103 @@ class PropertyImagesExtractor:
         filter_bar_selector = '.DialogWrapper .PhotoFilterBar'
         
         try:
-            property_page.wait_for_selector(filter_bar_selector, state='visible', timeout=5000)
-            return True, filter_bar_selector
+            # Use locator API for better retry handling
+            filter_bar = property_page.locator(filter_bar_selector)
+            
+            # Wait with polling to detect when it's available
+            is_visible = filter_bar.is_visible(timeout=5000)
+            return is_visible, filter_bar_selector
         except Exception as e:
             print(f"Photo filter bar not found: {str(e)}")
             return False, filter_bar_selector
     
     def process_filter_tabs(self, property_page, filter_bar_selector):
         """
-        Process each filter tab in the gallery
+        Process each filter tab and extract images using Playwright-native methods
         
         Args:
             property_page: Playwright page object
             filter_bar_selector: CSS selector for the filter bar
             
         Returns:
-            list: Combined list of image URLs from all filters
+            list: List of image URLs from all filter tabs
         """
+        print("Processing filter tabs...")
         all_image_urls = []
         
-        # First, count how many filter tabs there are
-        filter_options_selector = f'{filter_bar_selector} > span'
-        filter_count = property_page.evaluate(f"""() => {{
-            return document.querySelectorAll('{filter_options_selector}').length;
-        }}""")
-        
-        print(f"Found {filter_count} filter tabs")
-        
-        # Process each filter, starting from index 1 (skipping "All")
-        for i in range(1, filter_count):
-            try:
-                filter_name, success = self.click_filter_tab(
-                    property_page, filter_options_selector, i
-                )
+        try:
+            # Wait for the filter options to be visible
+            filter_options_selector = f"{filter_bar_selector} > span"
+            property_page.wait_for_selector(filter_options_selector, timeout=5000)
+            
+            # Get all filter tabs
+            filter_tabs = property_page.query_selector_all(filter_options_selector)
+            print(f"Found {len(filter_tabs)} filter tabs")
+            
+            # Process each filter tab
+            for i in range(len(filter_tabs)):
+                # Click on the filter tab
+                filter_name, success = self.click_filter_tab(property_page, filter_options_selector, i)
                 
                 if success:
-                    # Call the fetch_images method for this filter
-                    filter_images = self.fetch_images(property_page, filter_name)
-                    all_image_urls.extend(filter_images)
+                    # After clicking, wait for images to load
+                    property_page.wait_for_timeout(1000)
                     
-            except Exception as e:
-                print(f"Error processing filter tab {i}: {str(e)}")
-                
-        return all_image_urls
+                    # Extract images from the current filter tab
+                    tab_images = self.fetch_images(property_page, filter_name)
+                    print(f"Found {len(tab_images)} images in filter tab '{filter_name}'")
+                    
+                    # Add the images to our list
+                    all_image_urls.extend(tab_images)
+            
+            return all_image_urls
+            
+        except Exception as e:
+            print(f"Error processing filter tabs: {str(e)}")
+            
+            # If there was an error with tabs, try to extract images from the current view
+            fallback_images = self.fetch_images(property_page, "Fallback")
+            print(f"Fallback: extracted {len(fallback_images)} images from current view")
+            return fallback_images
     
     def click_filter_tab(self, property_page, filter_options_selector, index):
         """
-        Click on a specific filter tab and get its name
+        Click on a filter tab using Playwright-native methods
         
         Args:
             property_page: Playwright page object
             filter_options_selector: CSS selector for filter options
-            index: Index of the filter tab to click
+            index: Index of the tab to click
             
         Returns:
-            tuple: (filter_name, success) - (name of the filter, whether click was successful)
+            tuple: (filter_name, success) - Name of the filter and whether click was successful
         """
-        # Get fresh reference to the filter element using JavaScript
-        filter_name = property_page.evaluate(f"""(index) => {{
-            const filters = document.querySelectorAll('{filter_options_selector}');
-            if (filters.length > index) {{
-                const filter = filters[index];
-                const nameElem = filter.querySelector('p.font-body-xsmall');
-                return nameElem ? nameElem.textContent.trim() : `Filter ${{index}}`;
-            }}
-            return `Filter ${{index}}`;
-        }}""", index)
-        
-        print(f"Processing filter tab {index}: {filter_name}")
-        
-        # Click the filter tab using JavaScript to avoid stale element references
-        property_page.evaluate(f"""(index) => {{
-            const filters = document.querySelectorAll('{filter_options_selector}');
-            if (filters.length > index) {{
-                filters[index].click();
-            }}
-        }}""", index)
-        
-        # Wait a moment for the filter to apply
-        property_page.wait_for_timeout(1000)
-        
-        return filter_name, True
+        try:
+            # Re-query the filter tabs to ensure we have the latest DOM
+            filter_tabs = property_page.query_selector_all(filter_options_selector)
+            
+            if index < len(filter_tabs):
+                # Get the tab element
+                tab = filter_tabs[index]
+                
+                # Get the tab name before clicking
+                filter_name = tab.text_content().strip() if tab.text_content() else f"Tab {index + 1}"
+                print(f"Clicking on filter tab: '{filter_name}'")
+                
+                # Click on the tab
+                tab.click()
+                
+                # Wait for any animations or loading to complete
+                property_page.wait_for_timeout(1000)
+                
+                return filter_name, True
+            else:
+                print(f"Filter tab index {index} out of range. Only {len(filter_tabs)} tabs found.")
+                return f"Tab {index + 1}", False
+                
+        except Exception as e:
+            print(f"Error clicking on filter tab {index}: {str(e)}")
+            return f"Tab {index + 1}", False
     
     def extract_property_images(self, property_page):
         """
