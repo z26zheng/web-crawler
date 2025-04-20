@@ -51,9 +51,10 @@ def create_real_estate_table():
     
     Fields:
     - source_url: JSONB - stores source URL information
-    - address: TEXT - stores an address
+    - address: JSONB - stores address information
     - pending_date: DATE - stores a date
     - status: VARCHAR(50) - stores a string representing status
+    - price: INTEGER - stores the property price
     - qr_code_url: TEXT - stores a URL for QR code
     
     Returns:
@@ -66,19 +67,23 @@ def create_real_estate_table():
         CREATE TABLE IF NOT EXISTS public.real_estate (
             id SERIAL PRIMARY KEY,
             source_url JSONB,
-            address TEXT NOT NULL,
+            address JSONB NOT NULL,
             pending_date DATE,
             status VARCHAR(50),
+            price INTEGER,
             qr_code_url TEXT,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
         
-        -- Create index on address for faster lookups
-        CREATE INDEX IF NOT EXISTS idx_real_estate_address ON public.real_estate(address);
+        -- Create index on address for faster lookups using JSONB operators
+        CREATE INDEX IF NOT EXISTS idx_real_estate_address ON public.real_estate USING GIN (address);
         
         -- Create index on status for filtering
         CREATE INDEX IF NOT EXISTS idx_real_estate_status ON public.real_estate(status);
+        
+        -- Create index on price for range queries
+        CREATE INDEX IF NOT EXISTS idx_real_estate_price ON public.real_estate(price);
         """)
         
         session.execute(query)

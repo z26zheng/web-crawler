@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Any
 
 import json
 from sqlalchemy import Column, Integer, String, Date, DateTime, Text, ForeignKey, func, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -17,9 +18,10 @@ class RealEstate(Base):
     Fields match the database schema defined in create_table.py:
     - id: Auto-incrementing primary key
     - source_url: JSON data storing source URL information
-    - address: The property address (required)
+    - address: JSONB data storing address information (required)
     - pending_date: Date when the property is pending
     - status: Current status of the property
+    - price: Integer for the property price
     - qr_code_url: URL for QR code associated with property
     - created_at: Timestamp when record was created
     - updated_at: Timestamp when record was last updated
@@ -29,9 +31,10 @@ class RealEstate(Base):
     # Columns
     id = Column(Integer, primary_key=True)
     source_url = Column(JSON, default={})
-    address = Column(Text, nullable=False)
+    address = Column(JSONB, nullable=False)
     pending_date = Column(Date)
     status = Column(String(50))
+    price = Column(Integer)
     qr_code_url = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -47,6 +50,7 @@ class RealEstate(Base):
             'source_url': self.source_url,
             'pending_date': self.pending_date,
             'status': self.status,
+            'price': self.price,
             'qr_code_url': self.qr_code_url,
             'created_at': self.created_at,
             'updated_at': self.updated_at
@@ -60,6 +64,9 @@ class RealEstate(Base):
         # Convert JSON fields if they're strings
         if 'source_url' in data_copy and isinstance(data_copy['source_url'], str):
             data_copy['source_url'] = json.loads(data_copy['source_url'])
+            
+        if 'address' in data_copy and isinstance(data_copy['address'], str):
+            data_copy['address'] = json.loads(data_copy['address'])
         
         return cls(**data_copy)
 

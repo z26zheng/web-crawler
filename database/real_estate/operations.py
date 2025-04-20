@@ -14,17 +14,18 @@ from database.real_estate.models import RealEstate, RealEstateImage
 
 # Real Estate Operations
 
-def add_real_estate(address: str, source_url: Dict[str, Any] = None, 
+def add_real_estate(address: Dict[str, Any], source_url: Dict[str, Any] = None, 
                     pending_date: Optional[str] = None, status: Optional[str] = None, 
-                    qr_code_url: Optional[str] = None) -> int:
+                    price: Optional[int] = None, qr_code_url: Optional[str] = None) -> int:
     """
     Add a new real estate property using SQLAlchemy ORM
     
     Args:
-        address: Property address (required)
+        address: Property address as a dictionary (required)
         source_url: Source URL information
         pending_date: Date when the property is pending
         status: Current status of the property
+        price: Integer value representing property price
         qr_code_url: URL for QR code
         
     Returns:
@@ -41,6 +42,7 @@ def add_real_estate(address: str, source_url: Dict[str, Any] = None,
             source_url=source_url or {},
             pending_date=pending_date,
             status=status,
+            price=price,
             qr_code_url=qr_code_url
         )
         
@@ -133,7 +135,7 @@ def update_real_estate(property_id: int, updates: Dict[str, Any]) -> bool:
             return False
         
         # Update only valid fields
-        valid_fields = ["address", "source_url", "pending_date", "status", "qr_code_url"]
+        valid_fields = ["address", "source_url", "pending_date", "status", "price", "qr_code_url"]
         
         # Apply updates
         for key, value in updates.items():
