@@ -12,7 +12,7 @@ sys.path.insert(0, project_root)
 # Import after setting up path
 import crawlers.redfin.util as util
 from database.real_estate.models import PropertyMetadata
-from database.real_estate.operations import upsert_property, upsert_image
+from database.real_estate.operations import upsert_property, upsert_images
 from crawlers.redfin.extractors.property_metadata_extractor import PropertyMetadataExtractor
 from crawlers.redfin.extractors.property_images_extractor import PropertyImagesExtractor
 
@@ -156,20 +156,14 @@ class RedfinContentExtractor:
                 print(f"Updated existing property record with ID: {saved_property.id}")
                 
             print(f"Saving {len(property_images)} images to database...")
-            saved_images = []
             
-            # Update each image with the property_metadata_id and upsert to database
+            # Update each image with the property_metadata_id
             for image in property_images:
                 image.property_metadata_id = saved_property.id
-                saved_image, is_new_image = upsert_image(image)
-                
-                if is_new_image:
-                    print(f"Created new image record with ID: {saved_image.id}")
-                else:
-                    print(f"Updated existing image record with ID: {saved_image.id}")
-                    
-                saved_images.append(saved_image)
-                
+            
+            # Batch upsert images to database
+            saved_images = upsert_images(property_images)
+            
             return (saved_property, saved_images)
             
         except Exception as e:
@@ -196,7 +190,7 @@ class RedfinContentExtractor:
             page = self.process_search_page(page, url)
             
             # Use the updated process_property_page method to handle clicking and processing
-            property_page = self.process_property_page(context, page=page, card_selector='#MapHomeCard_1')
+            self.process_property_page(context, page=page, card_selector='#MapHomeCard_1')
             
             # Here you can do additional processing with property_page data if needed
             # For example, you could extract specific information from the property page

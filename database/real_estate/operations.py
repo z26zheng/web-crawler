@@ -412,68 +412,105 @@ def delete_image(image_id: int) -> bool:
         session.close()
 
 def upsert_image(property_image: PropertyImage) -> Tuple[PropertyImage, bool]:
+    # Call the batch upsert function with a single item
+    results = upsert_images([property_image])
+    return results[0] if results else (None, False)
+    
+def upsert_images(property_images: List[PropertyImage]) -> List[Tuple[PropertyImage, bool]]:
     """
-    Upsert (update or insert) a property image based on source_image_url as the unique key
+    Batch upsert (update or insert) multiple property images based on source_image_url as the unique key
     
     Args:
-        property_image: PropertyImage object to upsert
+        property_images: List of PropertyImage objects to upsert
         
     Returns:
-        Tuple[PropertyImage, bool]: (fresh_image, is_new) where:
+        List[Tuple[PropertyImage, bool]]: List of (fresh_image, is_new) tuples where:
             - fresh_image is a fresh PropertyImage object loaded from the database
             - is_new is True if a new record was created, False if an existing one was updated
         
     Raises:
-        Exception: If there was an error upserting the image
+        Exception: If there was an error upserting the images
     """
-    if not property_image.source_image_url:
-        raise ValueError("source_image_url is required for upsert operation")
-    
-    if not property_image.property_metadata_id:
-        raise ValueError("property_metadata_id is required for upsert operation")
+    if not property_images:
+        return []
+        
+    # Validate that all images have required fields
+    for image in property_images:
+        if not image.source_image_url:
+            raise ValueError("source_image_url is required for upsert operation")
+        if not image.property_metadata_id:
+            raise ValueError("property_metadata_id is required for upsert operation")
     
     session = Session()
     try:
-        # Check if an image with the given source_image_url already exists
-        existing_image = session.query(PropertyImage).filter(
-            PropertyImage.source_image_url == property_image.source_image_url
-        ).first()
+        # Extract all source_image_urls for batch querying
+        source_urls = [image.source_image_url for image in property_images]
         
-        is_new = False
+        # Batch query for existing images
+        existing_images = session.query(PropertyImage).filter(
+            PropertyImage.source_image_url.in_(source_urls)
+        ).all()
         
-        if existing_image:
-            # Update the existing image with non-None values from the input
-            if property_image.property_metadata_id is not None:
-                existing_image.property_metadata_id = property_image.property_metadata_id
-            if property_image.category is not None:
-                existing_image.category = property_image.category
-            if property_image.generated_image_url is not None:
-                existing_image.generated_image_url = property_image.generated_image_url
-            if property_image.state is not None:
-                existing_image.state = property_image.state
+        # Create a lookup dict for faster processing
+        existing_image_dict = {image.source_image_url: image for image in existing_images}
+        
+        # Track which images are new vs. updated
+        new_images = []
+        updated_image_ids = []
+        result_records = []
+        
+        for property_image in property_images:
+            is_new = False
             
-            image_id = existing_image.id
+            if property_image.source_image_url in existing_image_dict:
+                # Update existing image
+                existing_image = existing_image_dict[property_image.source_image_url]
+                
+                # Update fields with non-None values
+                if property_image.property_metadata_id is not None:
+                    existing_image.property_metadata_id = property_image.property_metadata_id
+                if property_image.category is not None:
+                    existing_image.category = property_image.category
+                if property_image.generated_image_url is not None:
+                    existing_image.generated_image_url = property_image.generated_image_url
+                if property_image.state is not None:
+                    existing_image.state = property_image.state
+                    
+                updated_image_ids.append(existing_image.id)
+                
+            else:
+                # Add new image to session
+                session.add(property_image)
+                new_images.append(property_image)
+                is_new = True
             
-        else:
-            # Create a new image
-            session.add(property_image)
-            is_new = True
+            # Track the result for this image (we'll update with fresh data after commit)
+            result_records.append((property_image, is_new))
         
-        # Commit changes
+        # Commit all changes in one batch
         session.commit()
         
-        # Get the ID based on whether it's new or existing
-        image_id = property_image.id if is_new else existing_image.id
+        # Now we need to refresh the records with database values
+        final_results = []
         
-        # Refresh from database
-        fresh_image = session.query(PropertyImage).filter(
-            PropertyImage.id == image_id
-        ).first()
+        for idx, (property_image, is_new) in enumerate(result_records):
+            if is_new:
+                # For new images, get the fresh record using the ID assigned during commit
+                image_id = property_image.id
+                fresh_image = session.query(PropertyImage).filter(
+                    PropertyImage.id == image_id
+                ).first()
+            else:
+                # For updated images, use the existing image with updated information
+                existing_image = existing_image_dict[property_image.source_image_url]
+                fresh_image = existing_image
+                
+            final_results.append((fresh_image, is_new))
+            
+        return final_results
         
-        return fresh_image, is_new
-    
     except Exception as e:
         session.rollback()
-        raise Exception(f"Error upserting image: {str(e)}")
+        raise Exception(f"Error batch upserting images: {str(e)}")
     finally:
         session.close()

@@ -46,12 +46,16 @@ class PropertyImagesExtractor:
                     # Get the src attribute using Playwright's native getAttribute method
                     image_url = img.get_attribute('src')
                     if image_url:
-                        # Create a PropertyImage instance instead of just printing the URL
+                        # Convert to bigphoto URL format if needed
+                        bigphoto_url = self.get_bigphoto(image_url)
+                        
+                        # Create a PropertyImage instance with the bigphoto URL
                         property_image = PropertyImage(
                             category=filter_name.upper(),
-                            source_image_url=image_url
+                            source_image_url=bigphoto_url
                         )
-                        print(f"PropertyImage: {property_image.to_dict()}")
+                        print(f"Image {i}: Original URL: {image_url}")
+                        print(f"Image {i}: BigPhoto URL: {bigphoto_url}")
                         property_images.append(property_image)
                 
             return property_images
@@ -261,3 +265,49 @@ class PropertyImagesExtractor:
             self.close_gallery(property_page)
             
             return image_urls
+
+    def get_bigphoto(self, image_url):
+        """
+        Convert image URLs to the bigphoto format if they aren't already.
+        
+        Args:
+            image_url: Original image URL from Redfin
+            
+        Returns:
+            str: URL in bigphoto format for higher resolution images
+        """
+        # Check if the URL is already in the bigphoto format
+        if '/bigphoto/' in image_url:
+            return image_url
+            
+        # Extract the required components from the URL to construct the bigphoto URL
+        try:
+            # Split by '/' to get components
+            parts = image_url.split('/')
+            
+            # Extract the photo directory number (usually "1" in "photo/1/...")
+            photo_dir_index = parts.index('photo')
+            photo_dir_num = parts[photo_dir_index + 1]
+            
+            # Extract the photo ID from the URL
+            # The photo ID is everything before .jpg in the filename
+            filename = parts[-1]
+            
+            if '.jpg' in filename:
+                # Extract everything before .jpg as the photo ID
+                photo_id = filename.split('.jpg')[0] + '.jpg'
+            else:
+                # If no .jpg extension, use the entire filename
+                photo_id = filename
+                
+            # The number before the photo ID in the path
+            photo_num = parts[-2]
+            
+            # Construct the bigphoto URL
+            bigphoto_url = f"https://ssl.cdn-redfin.com/photo/{photo_dir_num}/bigphoto/{photo_num}/{photo_id}"
+            
+            return bigphoto_url
+            
+        except Exception as e:
+            print(f"Error converting to bigphoto URL: {str(e)}, using original URL instead: {image_url}")
+            return image_url
