@@ -8,6 +8,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, "../../.."))
 sys.path.insert(0, project_root)
 
+# Import the PropertyImage model
+from database.real_estate.models import PropertyImage
+
 class PropertyImagesExtractor:
     def __init__(self):
         pass
@@ -21,10 +24,10 @@ class PropertyImagesExtractor:
             filter_name: The name of the filter (e.g. 'Kitchen', 'Bathroom')
         
         Returns:
-            list: List of image URLs for the filter
+            list: List of PropertyImage instances for the filter
         """
         print(f"Fetching images for filter: {filter_name}")
-        image_urls = []
+        property_images = []
         
         try:
             # Wait for image cards to be present in the DOM - using a more specific selector
@@ -43,13 +46,18 @@ class PropertyImagesExtractor:
                     # Get the src attribute using Playwright's native getAttribute method
                     image_url = img.get_attribute('src')
                     if image_url:
-                        print(f"Image {i}: {image_url}")
-                        image_urls.append(image_url)
+                        # Create a PropertyImage instance instead of just printing the URL
+                        property_image = PropertyImage(
+                            category=filter_name.upper(),
+                            source_image_url=image_url
+                        )
+                        print(f"PropertyImage: {property_image.to_dict()}")
+                        property_images.append(property_image)
                 
-            return image_urls
+            return property_images
         except Exception as e:
             print(f"Error extracting images for filter {filter_name}: {str(e)}")
-            return image_urls
+            return property_images
     
     def open_photo_gallery(self, property_page):
         """
