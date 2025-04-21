@@ -82,7 +82,7 @@ class PropertyImagesExtractor:
             photos_button = property_page.locator(photos_button_selector)
             
             # Wait for the button to be visible and clickable with proper state
-            photos_button.wait_for(state='visible', timeout=10000)
+            photos_button.wait_for(state='visible', timeout=50000)
             
             # Click on the photos button to open the gallery
             photos_button.click()
@@ -90,7 +90,7 @@ class PropertyImagesExtractor:
             # Wait for gallery to appear using a more reliable approach
             # Look for the dialog wrapper which contains the gallery
             dialog_wrapper = property_page.locator('.DialogWrapper')
-            dialog_wrapper.wait_for(state='visible', timeout=10000)
+            dialog_wrapper.wait_for(state='visible', timeout=50000)
             
             print("Successfully opened photo gallery")
             return True

@@ -82,10 +82,10 @@ class RedfinContentExtractor:
                 
                 # Wait a bit for content to load
                 print("Processing property details page...")
-                time.sleep(2)
+                time.sleep(3)
                 
                 # Extract property data
-                property_data = self.extract_property_data(property_page)
+                self.extract_property_data(property_page)
                 
                 # Close the tab if we opened it during this function call
                 print("Closing the property details tab")
@@ -173,13 +173,13 @@ class RedfinContentExtractor:
     def start(self, url):
         """
         Open the specified Redfin URL and extract its HTML content.
-        Also clicks on the first property card in a new tab.
+        Process multiple property cards in sequence, starting from index 0.
         
         Args:
             url (str): The Redfin URL to open
             
         Returns:
-            str: The HTML content of the page
+            int: Number of properties processed successfully
         """
         browser, context, playwright = util.launch_browser(headless=False, debug_dir=self.debug_dir)
         
@@ -189,15 +189,36 @@ class RedfinContentExtractor:
             # Process the search results page using the new method
             page = self.process_search_page(page, url)
             
-            # Use the updated process_property_page method to handle clicking and processing
-            self.process_property_page(context, page=page, card_selector='#MapHomeCard_1')
+            # Process property cards one by one, starting from index 0
+            property_index = 0
+            properties_processed = 0
+            result = True
             
-            # Here you can do additional processing with property_page data if needed
-            # For example, you could extract specific information from the property page
+            print(f"Starting to process property cards from index {property_index}")
+            
+            while result is not None:
+                card_selector = f'#MapHomeCard_{property_index}'
+                print(f"\n--- Processing property #{property_index} ---")
+                
+                # Process the property card
+                result = self.process_property_page(context, page=page, card_selector=card_selector)
+                
+                # If processing was successful, increment counters
+                if result is not None:
+                    properties_processed += 1
+                
+                # Move to the next property card
+                property_index += 1
+                
+                # Optional: Add a short delay between processing cards
+                time.sleep(1)
+            
+            print(f"\nFinished processing {properties_processed} property cards")
+            return properties_processed
             
         except Exception as e:
             print(f"Error extracting content: {str(e)}")
-            return None
+            return 0
             
         finally:
             browser.close()
