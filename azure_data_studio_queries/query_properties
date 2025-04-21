@@ -1,0 +1,6 @@
+select  * 
+from public.property_metadata
+LIMIT 1000;
+
+select * from public.property_images
+limit 1000;

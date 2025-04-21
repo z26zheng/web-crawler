@@ -12,6 +12,7 @@ sys.path.insert(0, project_root)
 # Import after setting up path
 import crawlers.redfin.util as util
 from database.real_estate.models import PropertyMetadata
+from database.real_estate.operations import upsert_property, upsert_image
 from crawlers.redfin.extractors.property_metadata_extractor import PropertyMetadataExtractor
 from crawlers.redfin.extractors.property_images_extractor import PropertyImagesExtractor
 
@@ -119,10 +120,60 @@ class RedfinContentExtractor:
             # Extract property images using the dedicated extractor
             property_images = self.property_images_extractor.extract_property_images(property_page)
             
-            return property_metadata
+            # Save to database
+            db_result = self.upsert_to_db(property_metadata, property_images)
+            
+            return db_result
             
         except Exception as e:
             print(f"Error extracting property data: {str(e)}")
+            return None
+    
+    def upsert_to_db(self, property_metadata, property_images):
+        """
+        Save property metadata and images to database using upsert operations
+        
+        Args:
+            property_metadata: PropertyMetadata object to save
+            property_images: List of PropertyImage objects to save
+            
+        Returns:
+            tuple: (property_metadata, property_images) if saved successfully, None otherwise
+        """
+        # Check if property_images is empty
+        if not property_images:
+            print("No property images to save. Skipping database operation.")
+            return None
+            
+        try:
+            print("Saving property metadata to database...")
+            # Upsert the property metadata first to get an ID
+            saved_property, is_new = upsert_property(property_metadata)
+            
+            if is_new:
+                print(f"Created new property record with ID: {saved_property.id}")
+            else:
+                print(f"Updated existing property record with ID: {saved_property.id}")
+                
+            print(f"Saving {len(property_images)} images to database...")
+            saved_images = []
+            
+            # Update each image with the property_metadata_id and upsert to database
+            for image in property_images:
+                image.property_metadata_id = saved_property.id
+                saved_image, is_new_image = upsert_image(image)
+                
+                if is_new_image:
+                    print(f"Created new image record with ID: {saved_image.id}")
+                else:
+                    print(f"Updated existing image record with ID: {saved_image.id}")
+                    
+                saved_images.append(saved_image)
+                
+            return (saved_property, saved_images)
+            
+        except Exception as e:
+            print(f"Error saving data to database: {str(e)}")
             return None
     
     def start(self, url):

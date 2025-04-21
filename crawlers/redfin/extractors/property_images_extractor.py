@@ -158,8 +158,8 @@ class PropertyImagesExtractor:
             filter_tabs = property_page.query_selector_all(filter_options_selector)
             print(f"Found {len(filter_tabs)} filter tabs")
             
-            # Process each filter tab
-            for i in range(len(filter_tabs)):
+            # Process each filter tab, except for the first one which is ALL photos.
+            for i in range(1, len(filter_tabs)):
                 # Click on the filter tab
                 filter_name, success = self.click_filter_tab(property_page, filter_options_selector, i)
                 

@@ -1,0 +1,8 @@
+
+
+DELETE FROM public.property_images;
+
+
+DELETE FROM public.property_metadata;
+
+
